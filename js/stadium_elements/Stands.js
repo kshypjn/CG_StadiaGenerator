@@ -17,6 +17,8 @@ function _getStandEffectiveParams(globalParams, individualStandParams, useIndivi
             color: individualStandParams.color || globalParams.standColor,
             pitchLength: globalParams.pitchLength, // Needed for context
             pitchWidth: globalParams.pitchWidth,   // Needed for context
+            // For roof calculations
+            name: individualStandParams.name || 'Stand'
         };
     }
     return { // Use global params

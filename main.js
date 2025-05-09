@@ -37,6 +37,7 @@ const PARAMS = {
     overallRoofHeight: 35,
     overallRoofOverhang: 5,
     overallRoofColor: '#777777',
+    overallRoofOpacity: 0.9,
     // Individual roof params
     individualRoofEnable: true, // Enabled by default
     individualRoofHeightOffset: 2,
@@ -154,6 +155,7 @@ function init() {
     overallRoofFolder.addBinding(PARAMS, 'overallRoofHeight', { min: 10, max: 70, step: 1 }).on('change', regenerateStadium);
     overallRoofFolder.addBinding(PARAMS, 'overallRoofOverhang', { min: 0, max: 20, step: 0.5 }).on('change', regenerateStadium);
     overallRoofFolder.addBinding(PARAMS, 'overallRoofColor', { view: 'color' }).on('change', regenerateStadium);
+    overallRoofFolder.addBinding(PARAMS, 'overallRoofOpacity', { min: 0.1, max: 1.0, step: 0.05 }).on('change', regenerateStadium);
     // Individual roof controls
     const individualRoofFolder = roofFolder.addFolder({ title: 'Individual Roofs' });
     individualRoofFolder.addBinding(PARAMS, 'individualRoofEnable').on('change', regenerateStadium);
