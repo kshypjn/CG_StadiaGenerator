@@ -161,16 +161,22 @@ export function generateAllStands(allParams, groupToAddTo) {
         }
         groupToAddTo.add(standGroup);
         if (allParams.roofType === 'individual' && allParams.individualRoofEnable) {
+            // Calculate dynamic roof coverage depth
+            let dynamicRoofCoverageDepth = totalProfileDepth * allParams.individualRoofCoverageFactor;
+            dynamicRoofCoverageDepth = Math.max(allParams.individualRoofMinCoverage, dynamicRoofCoverageDepth);
+            dynamicRoofCoverageDepth = Math.min(allParams.individualRoofMaxCoverage, dynamicRoofCoverageDepth);
+            dynamicRoofCoverageDepth = Math.max(0.1, dynamicRoofCoverageDepth);
             createIndividualRoof(
                 standGroup,
                 standLength,
                 allParams.individualRoofColor,
                 allParams.individualRoofHeightOffset,
-                allParams.individualRoofDepth,
+                dynamicRoofCoverageDepth, // Use dynamic depth
                 allParams.individualRoofTilt,
                 allParams.individualRoofThickness,
                 totalProfileDepth,
-                totalProfileHeightAtBack
+                totalProfileHeightAtBack,
+                allParams.supportColor
             );
         }
     });

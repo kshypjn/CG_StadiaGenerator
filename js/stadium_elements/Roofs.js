@@ -1,5 +1,13 @@
 import * as THREE from 'three';
 
+// Individual Roof for a Stand
+// Parameters:
+// - standGroup: The THREE.Group of the stand this roof belongs to. Its world transform is already set.
+// - standLength: The length of this stand (and thus the roof).
+// - color, heightOffset, depth (roof coverage), tilt, thickness: From PARAMS.individualRoof...
+// - standProfileDepth: The maximum X-extent of the stand's 2D profile (how "deep" the stand is).
+// - standTopY: The Y-coordinate of the top-back of the stand's solid structure (relative to stand's base).
+// - supportColor: Color for the supports.
 export function createIndividualRoof(standGroup, standLength, color, heightOffset, depth, tilt, thickness, standProfileDepth, standTopY, supportColor = '#666666') {
     // 1. Create a dedicated group for this roof assembly (slab + supports).
     const roofAssemblyGroup = new THREE.Group();
@@ -15,7 +23,8 @@ export function createIndividualRoof(standGroup, standLength, color, heightOffse
         opacity: 0.9
     });
 
-    /
+    // 3. Create the roof slab geometry
+    // BoxGeometry: Local X = depth (coverage), Local Y = thickness, Local Z = standLength
     const roofSlabGeo = new THREE.BoxGeometry(depth, thickness, standLength);
     const roofSlabMesh = new THREE.Mesh(roofSlabGeo, roofSlabMaterial);
     roofSlabMesh.castShadow = true;

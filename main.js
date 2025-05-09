@@ -39,12 +39,15 @@ const PARAMS = {
     overallRoofColor: '#777777',
     overallRoofOpacity: 0.9,
     // Individual roof params
-    individualRoofEnable: true, // Enabled by default
+    individualRoofEnable: true,
     individualRoofHeightOffset: 2,
-    individualRoofDepth: 15,
+    individualRoofCoverageFactor: 0.75, // Roof covers 75% of the stand's profile depth
+    individualRoofMinCoverage: 5,    // Minimum physical depth the roof will cover
+    individualRoofMaxCoverage: 40,   // Maximum physical depth the roof will cover
     individualRoofTilt: Math.PI / 18,
     individualRoofThickness: 0.5,
-    individualRoofColor: '#999999'
+    individualRoofColor: '#999999',
+    supportColor: '#555555'
 };
 
 // --- INITIALIZATION ---
@@ -160,10 +163,13 @@ function init() {
     const individualRoofFolder = roofFolder.addFolder({ title: 'Individual Roofs' });
     individualRoofFolder.addBinding(PARAMS, 'individualRoofEnable').on('change', regenerateStadium);
     individualRoofFolder.addBinding(PARAMS, 'individualRoofHeightOffset', { min: -5, max: 10, step: 0.1 }).on('change', regenerateStadium);
-    individualRoofFolder.addBinding(PARAMS, 'individualRoofDepth', { min: 1, max: 40, step: 0.5 }).on('change', regenerateStadium);
+    individualRoofFolder.addBinding(PARAMS, 'individualRoofCoverageFactor', { min: 0.1, max: 1.2, step: 0.05, label: 'Coverage Factor' }).on('change', regenerateStadium);
+    individualRoofFolder.addBinding(PARAMS, 'individualRoofMinCoverage', { min: 1, max: 20, step: 0.5, label: 'Min Coverage (m)' }).on('change', regenerateStadium);
+    individualRoofFolder.addBinding(PARAMS, 'individualRoofMaxCoverage', { min: 5, max: 60, step: 0.5, label: 'Max Coverage (m)' }).on('change', regenerateStadium);
     individualRoofFolder.addBinding(PARAMS, 'individualRoofTilt', { min: 0, max: Math.PI / 4, step: 0.01 }).on('change', regenerateStadium);
     individualRoofFolder.addBinding(PARAMS, 'individualRoofThickness', { min: 0.1, max: 2, step: 0.05 }).on('change', regenerateStadium);
     individualRoofFolder.addBinding(PARAMS, 'individualRoofColor', { view: 'color' }).on('change', regenerateStadium);
+    individualRoofFolder.addBinding(PARAMS, 'supportColor', { view: 'color', label: 'Support Color' }).on('change', regenerateStadium);
 
     // Initial generation
     regenerateStadium();
