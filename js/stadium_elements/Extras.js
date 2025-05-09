@@ -3,143 +3,259 @@ import * as THREE from 'three';
 // Helper to clear previous extras
 function clearExtrasFromGroup(stadiumGroup, groupName) {
     const old = stadiumGroup.getObjectByName(groupName);
-    if (old) stadiumGroup.remove(old);
+    if (old) {
+        old.traverse(child => {
+            if (child.isMesh) {
+                if (child.geometry) child.geometry.dispose();
+                if (child.material) {
+                    if (Array.isArray(child.material)) {
+                        child.material.forEach(m => {
+                            if (m.map) m.map.dispose();
+                            m.dispose();
+                        });
+                    } else {
+                        if (child.material.map) child.material.map.dispose();
+                        child.material.dispose();
+                    }
+                }
+            }
+        });
+        stadiumGroup.remove(old);
+    }
 }
 
-// Main function to create extras
-export function createStadiumExtras(allParams, stadiumGroup, standObjects = []) {
-    // --- Clear previous extras ---
+// Create LED screen texture (fallback)
+function createLEDScreenTexture(image = null) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1024;
+    canvas.height = 128;
+    const ctx = canvas.getContext('2d');
+    const ledSize = 4;
+    const ledSpacing = 1;
+    const totalLedsX = Math.floor(canvas.width / (ledSize + ledSpacing));
+    const totalLedsY = Math.floor(canvas.height / (ledSize + ledSpacing));
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    if (image) {
+        ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+        for (let y = 0; y < totalLedsY; y++) {
+            for (let x = 0; x < totalLedsX; x++) {
+                const pixelX = x * (ledSize + ledSpacing);
+                const pixelY = y * (ledSize + ledSpacing);
+                const imageData = ctx.getImageData(pixelX, pixelY, 1, 1).data;
+                ctx.fillStyle = `rgba(${imageData[0]}, ${imageData[1]}, ${imageData[2]}, 0.8)`;
+                ctx.beginPath();
+                ctx.arc(
+                    pixelX + ledSize/2,
+                    pixelY + ledSize/2,
+                    ledSize/2,
+                    0,
+                    Math.PI * 2
+                );
+                ctx.fill();
+            }
+        }
+    } else {
+        for (let y = 0; y < totalLedsY; y++) {
+            for (let x = 0; x < totalLedsX; x++) {
+                const pixelX = x * (ledSize + ledSpacing);
+                const pixelY = y * (ledSize + ledSpacing);
+                const hue = (x + y) % 360;
+                ctx.fillStyle = `hsla(${hue}, 100%, 50%, 0.8)`;
+                ctx.beginPath();
+                ctx.arc(
+                    pixelX + ledSize/2,
+                    pixelY + ledSize/2,
+                    ledSize/2,
+                    0,
+                    Math.PI * 2
+                );
+                ctx.fill();
+            }
+        }
+    }
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(2, 1);
+    return texture;
+}
+
+let defaultAdMaterial = null;
+
+// Cache materials to avoid recreating them constantly
+let adMaterialCache = null;
+const ribbonDisplayMaterials = {}; // Cache for ribbon displays, one per stand if needed
+
+// Helper to generate canvas texture for ribbon display
+function createRibbonDisplayTexture(width, height, params) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1024;
+    canvas.height = Math.floor(height * 100);
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = params.ribbonDisplayColor;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = params.ribbonDisplayTextColor;
+    const fontSize = Math.max(16, Math.floor(canvas.height * 0.6));
+    ctx.font = `bold ${fontSize}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const scoreText = `${params.ribbonDisplayTeamA} ${params.ribbonDisplayScoreA} - ${params.ribbonDisplayScoreB} ${params.ribbonDisplayTeamB}`;
+    const gameTimeText = params.ribbonDisplayGameTime;
+    const textY = canvas.height / 2;
+    ctx.fillText(scoreText, canvas.width / 2, textY);
+    ctx.textAlign = 'right';
+    ctx.fillText(gameTimeText, canvas.width - 20, textY);
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.ClampToEdgeWrapping;
+    texture.wrapT = THREE.ClampToEdgeWrapping;
+    texture.needsUpdate = true;
+    return texture;
+}
+
+export function createStadiumExtras(allParams, stadiumGroup, standObjects = [], uploadedAdTexture = null) {
     clearExtrasFromGroup(stadiumGroup, 'ExtrasGroup');
     const extrasGroup = new THREE.Group();
     extrasGroup.name = 'ExtrasGroup';
 
-    // --- SCOREBOARD ---
-    if (allParams.showScoreboard) {
-        let scoreboardPos, scoreboardRotY = 0;
-        const scoreboardWidth = allParams.scoreboardWidth;
-        const scoreboardHeight = allParams.scoreboardHeight;
-        let scoreboardStand = standObjects && standObjects[allParams.scoreboardStandIndex];
-
-        if (scoreboardStand) {
-            console.log("Placing scoreboard relative to stand:", scoreboardStand.name);
-            const stand = scoreboardStand;
-
-            // Position relative to the stand's BACK-CENTER-TOP
-            // The standGroup's origin is at its extrusion start & profile (0,0).
-            // Its length is along its local Z (before world rotation). Its depth is local X.
-
-            // Calculate local position in stand's space
-            const localScoreboardPos = new THREE.Vector3(
-                stand.totalProfileDepth + allParams.scoreboardOffsetFromStandBack, // X: At the back of stand profile + offset
-                stand.totalProfileHeightAtBack + allParams.scoreboardHeightOffset + (scoreboardHeight / 2), // Y: Top of stand + offset + half height
-                stand.standLength / 2 // Z: Middle of the stand's length
-            );
-
-            // Transform local position to world space using stand's world matrix
-            const standWorldMatrix = stand.group.matrixWorld.clone();
-            scoreboardPos = localScoreboardPos.applyMatrix4(standWorldMatrix);
-
-            // Scoreboard should face the pitch center
-            scoreboardRotY = stand.rotationY + Math.PI; // Rotate 180° from stand's orientation to face pitch
-
-            console.log("Scoreboard position:", scoreboardPos, "Rotation Y:", scoreboardRotY);
-        } else {
-            console.warn("Scoreboard stand not found or standObjects empty. Placing at default.");
-            // Fallback: place at one end of the pitch, facing inwards
-            scoreboardPos = new THREE.Vector3(0, 5 + scoreboardHeight / 2, -PARAMS.pitchWidth / 2 - (PARAMS.standOffsetFromPitch + 5));
-            scoreboardRotY = 0;
-        }
-
-        // Create scoreboard material
-        let scoreboardMaterial;
-        if (allParams.scoreboardTexturePath) {
-            scoreboardMaterial = new THREE.MeshStandardMaterial({ color: 0x222244, side: THREE.DoubleSide });
-        } else {
-            const canvas = document.createElement('canvas');
-            canvas.width = 512; canvas.height = 256;
-            const ctx = canvas.getContext('2d');
-            ctx.fillStyle = '#222244'; ctx.fillRect(0, 0, 512, 256);
-            ctx.font = 'bold 60px Arial'; ctx.fillStyle = '#FFFFFF';
-            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-            ctx.fillText('SCORE', 256, 100);
-            ctx.font = '40px Arial';
-            ctx.fillText('0 - 0', 256, 180);
-            const tex = new THREE.CanvasTexture(canvas);
-            scoreboardMaterial = new THREE.MeshStandardMaterial({ map: tex, side: THREE.DoubleSide });
-        }
-
-        const scoreboardGeo = new THREE.PlaneGeometry(scoreboardWidth, scoreboardHeight);
-        const scoreboardMesh = new THREE.Mesh(scoreboardGeo, scoreboardMaterial);
-        scoreboardMesh.position.copy(scoreboardPos);
-        scoreboardMesh.rotation.y = scoreboardRotY;
-        scoreboardMesh.castShadow = true;
-        extrasGroup.add(scoreboardMesh);
-        console.log("Scoreboard added to extrasGroup.");
-    }
-
     // --- ADVERTISING HOARDINGS ---
     if (allParams.showAdHoardings) {
+        console.log("Creating ad hoardings...");
         const adHeight = allParams.adHoardingHeight;
         const adOffset = allParams.adHoardingOffsetFromPitch;
-        const adMaterial = (() => {
-            if (allParams.adHoardingTexturePath) {
-                // const texLoader = new THREE.TextureLoader();
-                // const tex = texLoader.load(allParams.adHoardingTexturePath);
-                // tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-                // tex.repeat.set(4, 1); // Repeat texture
-                // return new THREE.MeshBasicMaterial({ map: tex });
-                return new THREE.MeshBasicMaterial({ color: 0x00aaff });
-            } else {
-                // Placeholder: blue with white stripes
+        const emissiveIntensity = allParams.adHoardingEmissiveIntensity || 1.0;
+        let adMaterial;
+        if (uploadedAdTexture) {
+            adMaterial = new THREE.MeshStandardMaterial({
+                map: uploadedAdTexture,
+                side: THREE.DoubleSide,
+                emissive: 0xffffff,
+                emissiveIntensity: emissiveIntensity,
+                emissiveMap: uploadedAdTexture
+            });
+        } else {
+            if (!defaultAdMaterial || defaultAdMaterial.color.getHexString() !== allParams.adHoardingColor.substring(1) || defaultAdMaterial.emissiveIntensity !== emissiveIntensity) {
+                if (defaultAdMaterial) {
+                    if (defaultAdMaterial.map) defaultAdMaterial.map.dispose();
+                    defaultAdMaterial.dispose();
+                }
                 const canvas = document.createElement('canvas');
-                canvas.width = 256; canvas.height = 32;
+                canvas.width = 256; canvas.height = 64;
                 const ctx = canvas.getContext('2d');
-                ctx.fillStyle = '#00aaff'; ctx.fillRect(0, 0, 256, 32);
-                ctx.strokeStyle = '#fff';
-                for (let i = 0; i < 8; i++) ctx.strokeRect(i*32, 0, 16, 32);
-                const tex = new THREE.CanvasTexture(canvas);
-                tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-                tex.repeat.set(4, 1);
-                return new THREE.MeshBasicMaterial({ map: tex });
+                ctx.fillStyle = allParams.adHoardingColor;
+                ctx.fillRect(0, 0, 256, 64);
+                ctx.font = 'bold 20px sans-serif';
+                ctx.fillStyle = 'rgba(255,255,255,0.7)';
+                ctx.textAlign = 'center';
+                ctx.fillText('STADIUM ADS', 128, 38);
+                const defaultTex = new THREE.CanvasTexture(canvas);
+                defaultTex.wrapS = THREE.RepeatWrapping;
+                defaultTex.wrapT = THREE.RepeatWrapping;
+                defaultAdMaterial = new THREE.MeshStandardMaterial({
+                    map: defaultTex,
+                    side: THREE.DoubleSide,
+                    emissive: 0xffffff,
+                    emissiveIntensity: emissiveIntensity,
+                    emissiveMap: defaultTex
+                });
             }
-        })();
-        // Four sides
-        const l = allParams.pitchLength, w = allParams.pitchWidth;
-        const adThickness = 0.1;
-        // North (behind top goal)
-        const northAd = new THREE.Mesh(new THREE.PlaneGeometry(l, adHeight), adMaterial);
-        northAd.position.set(0, adHeight / 2, -w / 2 - adOffset);
-        northAd.rotation.y = 0;
-        extrasGroup.add(northAd);
-        // South (behind bottom goal)
-        const southAd = new THREE.Mesh(new THREE.PlaneGeometry(l, adHeight), adMaterial);
-        southAd.position.set(0, adHeight / 2, w / 2 + adOffset);
-        southAd.rotation.y = Math.PI;
-        extrasGroup.add(southAd);
-        // East (right touchline)
-        const eastAd = new THREE.Mesh(new THREE.PlaneGeometry(w, adHeight), adMaterial);
-        eastAd.position.set(l / 2 + adOffset, adHeight / 2, 0);
-        eastAd.rotation.y = -Math.PI / 2;
-        extrasGroup.add(eastAd);
-        // West (left touchline)
-        const westAd = new THREE.Mesh(new THREE.PlaneGeometry(w, adHeight), adMaterial);
-        westAd.position.set(-l / 2 - adOffset, adHeight / 2, 0);
-        westAd.rotation.y = Math.PI / 2;
-        extrasGroup.add(westAd);
+            adMaterial = defaultAdMaterial;
+        }
+        const l = allParams.pitchLength;
+        const w = allParams.pitchWidth;
+        const createAdHoarding = (width, height, position, rotationY) => {
+            const geometry = new THREE.PlaneGeometry(width, height);
+            const hoarding = new THREE.Mesh(geometry, adMaterial);
+            hoarding.position.copy(position);
+            hoarding.rotation.y = rotationY;
+            // Adjust texture repeat for this specific hoarding
+            if (adMaterial.map) {
+                const clonedMaterial = adMaterial.clone();
+                const texture = adMaterial.map.clone();
+                texture.needsUpdate = true;
+                const imageAspectRatio = texture.image ? texture.image.width / texture.image.height : 4;
+                texture.repeat.set(width / (height * imageAspectRatio) * 2 , 1);
+                clonedMaterial.map = texture;
+                if (clonedMaterial.emissiveMap) {
+                    const emissiveTex = clonedMaterial.emissiveMap.clone();
+                    emissiveTex.needsUpdate = true;
+                    emissiveTex.repeat.copy(texture.repeat);
+                    clonedMaterial.emissiveMap = emissiveTex;
+                }
+                hoarding.material = clonedMaterial;
+            }
+            extrasGroup.add(hoarding);
+            console.log("Added ad hoarding at:", hoarding.position);
+        };
+        // North
+        createAdHoarding(l, adHeight, new THREE.Vector3(0, adHeight / 2 + 0.01, -w / 2 - adOffset), 0);
+        // South
+        createAdHoarding(l, adHeight, new THREE.Vector3(0, adHeight / 2 + 0.01, w / 2 + adOffset), Math.PI);
+        // East
+        createAdHoarding(w, adHeight, new THREE.Vector3(l / 2 + adOffset, adHeight / 2 + 0.01, 0), -Math.PI / 2);
+        // West
+        createAdHoarding(w, adHeight, new THREE.Vector3(-l / 2 - adOffset, adHeight / 2 + 0.01, 0), Math.PI / 2);
     }
 
-    stadiumGroup.add(extrasGroup);
+    // --- RIBBON LED DISPLAYS ---
+    if (allParams.showRibbonDisplays && standObjects.length >= 2) {
+        // Find East and West stands by name
+        const eastStandData = standObjects.find(s => s.name.toLowerCase().includes('eaststandgroup'));
+        const westStandData = standObjects.find(s => s.name.toLowerCase().includes('weststandgroup'));
+        const ribbonStands = [eastStandData, westStandData].filter(Boolean);
+
+        ribbonStands.forEach(standData => {
+            if (!standData || !standData.group.userData.totalProfileDepth) return;
+            console.log('Ribbon standData:', standData);
+
+            const ribbonWidth = standData.standLength;
+            const ribbonHeight = allParams.ribbonDisplayHeight;
+            const ribbonTexture = createRibbonDisplayTexture(ribbonWidth, ribbonHeight, allParams);
+            const ribbonMaterial = new THREE.MeshStandardMaterial({
+                map: ribbonTexture,
+                side: THREE.DoubleSide,
+                emissive: 0xffffff,
+                emissiveMap: ribbonTexture,
+                emissiveIntensity: allParams.ribbonDisplayEmissiveIntensity,
+                metalness: 0.1,
+                roughness: 0.8
+            });
+            const ribbonGeo = new THREE.PlaneGeometry(ribbonWidth, ribbonHeight);
+            const ribbonMesh = new THREE.Mesh(ribbonGeo, ribbonMaterial);
+            ribbonMesh.name = `RibbonDisplay_${standData.name}`;
+
+            // Debug: force visible position
+            let localPosX = standData.totalProfileDepth / 2;
+            let localPosY = standData.totalProfileHeightAtBack + 5;
+            let localPosZ = standData.standLength / 2;
+            ribbonMesh.position.set(localPosX, localPosY, localPosZ);
+
+            // Try different rotations if not visible
+            ribbonMesh.rotation.y = Math.PI;
+
+            // Add AxesHelper for debugging
+            const ribbonAxesHelper = new THREE.AxesHelper(2);
+            ribbonMesh.add(ribbonAxesHelper);
+
+            // If not visible, try a basic material
+            // Uncomment the next line to test with a solid color
+            // ribbonMesh.material = new THREE.MeshBasicMaterial({ color: 0xff00ff, side: THREE.DoubleSide });
+
+            standData.group.add(ribbonMesh);
+            console.log('Ribbon mesh position:', ribbonMesh.position, 'rotation.y:', ribbonMesh.rotation.y);
+        });
+    }
+
+    if (extrasGroup.children.length > 0 || allParams.showRibbonDisplays) {
+        if(extrasGroup.children.length > 0 && extrasGroup.parent !== stadiumGroup) {
+            stadiumGroup.add(extrasGroup);
+        }
+    }
 }
 
 // --- PARAMS SUGGESTIONS (add to main.js PARAMS and Tweakpane) ---
-// showScoreboard: true/false
-// scoreboardWidth: 6
-// scoreboardHeight: 2.5
-// scoreboardTexturePath: ''
-// scoreboardHeightOffset: 2
-// scoreboardStandIndex: 2 (0=East, 1=West, 2=North, 3=South)
-// scoreboardOffsetFromStandBack: 1
 // showAdHoardings: true/false
 // adHoardingHeight: 1
-// adHoardingTexturePath: ''
-// adHoardingOffsetFromPitch: 2 
+// adHoardingImage: null
+// adHoardingOffsetFromPitch: 2
+// adHoardingBrightness: 1.0
+// adHoardingGlow: 0.2 

@@ -4,13 +4,15 @@ import { Pane } from 'tweakpane';
 
 import { generateAllStands } from './js/stadium_elements/Stands.js'; 
 import { createStadiumExtras } from './js/stadium_elements/Extras.js';
+import { createStadiumFloodlights } from './js/stadium_elements/Floodlights.js';
 
 let scene, camera, renderer, controls;
 let stadiumGroup;
+let customAdHoardingTexture = null; // To store the uploaded texture
 
 const PARAMS = {
-    pitchLength: 100.6, // meters (110 yards)
-    pitchWidth: 64.0,   // meters (70 yards)
+    pitchLength: 100.6,
+    pitchWidth: 64.0,   
     lineWidth: 0.15,
     showPitch: true,
     stadiumType: 'football',
@@ -49,18 +51,36 @@ const PARAMS = {
     individualRoofThickness: 0.5,
     individualRoofColor: '#999999',
     supportColor: '#555555',
-    // --- Extras (Scoreboard & Ad Hoardings) ---
-    showScoreboard: true,
-    scoreboardWidth: 6,
-    scoreboardHeight: 2.5,
-    scoreboardTexturePath: '',
-    scoreboardHeightOffset: 2,
-    scoreboardStandIndex: 2, // 0=East, 1=West, 2=North, 3=South
-    scoreboardOffsetFromStandBack: 1,
+    // --- Extras (Ad Hoardings) ---
     showAdHoardings: true,
     adHoardingHeight: 1,
-    adHoardingTexturePath: '',
     adHoardingOffsetFromPitch: 2,
+    adHoardingColor: '#00aaff', // Default color if no texture
+    adHoardingEmissiveIntensity: 0.5, // For LED glow effect
+    // --- Floodlights ---
+    showFloodlights: true,
+    floodlightTowerHeight: 38,
+    floodlightTowerColor: '#cccccc',
+    numLightsPerTower: 3, // Lowered for performance
+    spotlightColorPreset: 0xfff8e1, // default: Warm White
+    spotlightIntensity: 2.5,
+    spotlightAngle: Math.PI / 7,
+    spotlightPenumbra: 0.3,
+    spotlightDistance: 250,
+    showSpotlightHelpers: false, // Default off for performance
+    // --- Ribbon Display / LED Strip Scoreboard Settings ---
+    showRibbonDisplays: true,
+    ribbonDisplayHeight: 0.8, // Height of the LED strip
+    ribbonDisplayTier: 'lower_back', // 'lower_back', 'upper_front'
+    ribbonDisplayOffsetY: 0.2, // Fine-tune Y position
+    ribbonDisplayColor: '#101028',
+    ribbonDisplayTextColor: '#FFFFFF',
+    ribbonDisplayTeamA: 'HOME',
+    ribbonDisplayScoreA: 0,
+    ribbonDisplayTeamB: 'AWAY',
+    ribbonDisplayScoreB: 0,
+    ribbonDisplayGameTime: "00:00",
+    ribbonDisplayEmissiveIntensity: 0.7,
 };
 
 // --- INITIALIZATION ---
@@ -78,8 +98,8 @@ function init() {
     const container = document.getElementById('container');
     renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(window.devicePixelRatio);
-    renderer.shadowMap.enabled = true;
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5)); // Lower pixel ratio for performance
+    renderer.shadowMap.enabled = false; // Disable shadows for performance
     container.appendChild(renderer.domElement);
 
     // Add debug logging
@@ -186,19 +206,93 @@ function init() {
 
     // --- Extras Controls ---
     const extrasFolder = pane.addFolder({ title: 'Extras' });
-    const scoreboardFolder = extrasFolder.addFolder({ title: 'Scoreboard' });
-    scoreboardFolder.addBinding(PARAMS, 'showScoreboard').on('change', regenerateStadium);
-    scoreboardFolder.addBinding(PARAMS, 'scoreboardWidth', { min: 2, max: 20, step: 0.1 }).on('change', regenerateStadium);
-    scoreboardFolder.addBinding(PARAMS, 'scoreboardHeight', { min: 1, max: 10, step: 0.1 }).on('change', regenerateStadium);
-    scoreboardFolder.addBinding(PARAMS, 'scoreboardHeightOffset', { min: 0, max: 10, step: 0.1 }).on('change', regenerateStadium);
-    scoreboardFolder.addBinding(PARAMS, 'scoreboardStandIndex', { min: 0, max: 3, step: 1, label: 'Stand (0=E,1=W,2=N,3=S)' }).on('change', regenerateStadium);
-    scoreboardFolder.addBinding(PARAMS, 'scoreboardOffsetFromStandBack', { min: 0, max: 10, step: 0.1 }).on('change', regenerateStadium);
-    scoreboardFolder.addBinding(PARAMS, 'scoreboardTexturePath').on('change', regenerateStadium);
     const adFolder = extrasFolder.addFolder({ title: 'Ad Hoardings' });
     adFolder.addBinding(PARAMS, 'showAdHoardings').on('change', regenerateStadium);
     adFolder.addBinding(PARAMS, 'adHoardingHeight', { min: 0.5, max: 3, step: 0.05 }).on('change', regenerateStadium);
     adFolder.addBinding(PARAMS, 'adHoardingOffsetFromPitch', { min: 0.5, max: 10, step: 0.1 }).on('change', regenerateStadium);
-    adFolder.addBinding(PARAMS, 'adHoardingTexturePath').on('change', regenerateStadium);
+    adFolder.addBinding(PARAMS, 'adHoardingColor', { view: 'color', label: 'Default Color' }).on('change', regenerateStadium);
+    adFolder.addBinding(PARAMS, 'adHoardingEmissiveIntensity', { min: 0, max: 2, step: 0.05, label: 'LED Glow' }).on('change', regenerateStadium);
+
+    // --- Ribbon LED Displays Controls ---
+    const ribbonFolder = extrasFolder.addFolder({ title: 'Ribbon LED Displays' });
+    ribbonFolder.addBinding(PARAMS, 'showRibbonDisplays').on('change', regenerateStadium);
+    ribbonFolder.addBinding(PARAMS, 'ribbonDisplayHeight', { min: 0.3, max: 2.0, step: 0.05 }).on('change', regenerateStadium);
+    ribbonFolder.addBinding(PARAMS, 'ribbonDisplayTier', { options: { 'Lower Tier Back': 'lower_back', 'Upper Tier Front': 'upper_front'} }).on('change', regenerateStadium);
+    ribbonFolder.addBinding(PARAMS, 'ribbonDisplayOffsetY', { min: -1, max: 2, step: 0.05 }).on('change', regenerateStadium);
+    ribbonFolder.addBinding(PARAMS, 'ribbonDisplayColor', { view: 'color' }).on('change', regenerateStadium);
+    ribbonFolder.addBinding(PARAMS, 'ribbonDisplayTextColor', { view: 'color' }).on('change', regenerateStadium);
+    ribbonFolder.addBinding(PARAMS, 'ribbonDisplayTeamA', {label: 'Team A Name'}).on('change', regenerateStadium);
+    ribbonFolder.addBinding(PARAMS, 'ribbonDisplayScoreA', { min: 0, max: 99, step: 1, label: 'Team A Score' }).on('change', regenerateStadium);
+    ribbonFolder.addBinding(PARAMS, 'ribbonDisplayTeamB', {label: 'Team B Name'}).on('change', regenerateStadium);
+    ribbonFolder.addBinding(PARAMS, 'ribbonDisplayScoreB', { min: 0, max: 99, step: 1, label: 'Team B Score' }).on('change', regenerateStadium);
+    ribbonFolder.addBinding(PARAMS, 'ribbonDisplayGameTime', {label: 'Game Time/Msg'}).on('change', regenerateStadium);
+    ribbonFolder.addBinding(PARAMS, 'ribbonDisplayEmissiveIntensity', { min: 0, max: 2, step: 0.05 }).on('change', regenerateStadium);
+
+    // --- Floodlights Controls ---
+    const floodFolder = pane.addFolder({ title: 'Floodlights' });
+    floodFolder.addBinding(PARAMS, 'showFloodlights').on('change', regenerateStadium);
+    floodFolder.addBinding(PARAMS, 'floodlightTowerHeight', { min: 20, max: 60, step: 1 }).on('change', regenerateStadium);
+    floodFolder.addBinding(PARAMS, 'floodlightTowerColor', { view: 'color' }).on('change', regenerateStadium);
+    floodFolder.addBinding(PARAMS, 'numLightsPerTower', { min: 1, max: 12, step: 1 }).on('change', regenerateStadium);
+    floodFolder.addBinding(PARAMS, 'spotlightColorPreset', {
+        options: {
+            'Warm White': 0xfff8e1,
+            'Cool White': 0xe0f0ff,
+            'Stadium Yellow': 0xfffeca
+        }
+    }).on('change', regenerateStadium);
+    floodFolder.addBinding(PARAMS, 'spotlightIntensity', { min: 0.1, max: 10, step: 0.1 }).on('change', regenerateStadium);
+    floodFolder.addBinding(PARAMS, 'spotlightAngle', { min: Math.PI/16, max: Math.PI/3, step: 0.01 }).on('change', regenerateStadium);
+    floodFolder.addBinding(PARAMS, 'spotlightPenumbra', { min: 0, max: 1, step: 0.01 }).on('change', regenerateStadium);
+    floodFolder.addBinding(PARAMS, 'spotlightDistance', { min: 50, max: 500, step: 1 }).on('change', regenerateStadium);
+    floodFolder.addBinding(PARAMS, 'showSpotlightHelpers').on('change', regenerateStadium);
+
+    // --- Tweakpane Image Upload Button ---
+    // Create a hidden file input for image upload
+    const hiddenAdInput = document.createElement('input');
+    hiddenAdInput.type = 'file';
+    hiddenAdInput.accept = 'image/png, image/jpeg, image/jpg';
+    hiddenAdInput.style.display = 'none';
+    document.body.appendChild(hiddenAdInput);
+
+    // Add upload button to Tweakpane
+    const uploadBtn = adFolder.addButton({ title: 'Upload Ad Image' });
+    uploadBtn.on('click', () => {
+        hiddenAdInput.click();
+    });
+
+    hiddenAdInput.addEventListener('change', function(event) {
+        const file = event.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const textureLoader = new THREE.TextureLoader();
+                textureLoader.load(e.target.result, (texture) => {
+                    if (customAdHoardingTexture) {
+                        customAdHoardingTexture.dispose();
+                    }
+                    texture.wrapS = THREE.RepeatWrapping;
+                    texture.wrapT = THREE.RepeatWrapping;
+                    texture.needsUpdate = true;
+                    customAdHoardingTexture = texture;
+                    PARAMS.adHoardingImage = null;
+                    regenerateStadium();
+                });
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+
+    // Add clear button to Tweakpane
+    const clearBtn = adFolder.addButton({ title: 'Clear Ad Image' });
+    clearBtn.on('click', () => {
+        if (customAdHoardingTexture) {
+            customAdHoardingTexture.dispose();
+            customAdHoardingTexture = null;
+        }
+        hiddenAdInput.value = '';
+        regenerateStadium();
+    });
 
     // Initial generation
     regenerateStadium();
@@ -218,6 +312,8 @@ function onWindowResize() {
 function animate() {
     requestAnimationFrame(animate);
     controls.update();
+    // If you want to update helpers, do it only if showSpotlightHelpers is true and only for visible helpers
+    // (No per-frame helper updates for performance)
     renderer.render(scene, camera);
 }
 
@@ -251,6 +347,7 @@ function regenerateStadium() {
     
     // --- Collect standObjects for Extras.js ---
     let standObjects = [];
+    console.log("Collecting stand objects for extras...");
     stadiumGroup.children.forEach(child => {
         if (child.isGroup && child.name && child.name.endsWith('StandGroup')) {
             if (child.userData && child.userData.standLength !== undefined) {
@@ -263,14 +360,24 @@ function regenerateStadium() {
                     totalProfileDepth: child.userData.totalProfileDepth,
                     totalProfileHeightAtBack: child.userData.totalProfileHeightAtBack
                 });
-                console.log(`Collected stand object: ${child.name}`, child.userData);
+                console.log(`Collected stand object: ${child.name}`, {
+                    position: child.position,
+                    rotationY: child.rotation.y,
+                    userData: child.userData
+                });
             } else {
-                console.warn(`StandGroup ${child.name} is missing expected userData properties.`);
+                console.warn(`StandGroup ${child.name} is missing expected userData properties:`, child.userData);
             }
         }
     });
     console.log("Stand objects collected for extras:", standObjects);
-    createStadiumExtras(PARAMS, stadiumGroup, standObjects);
+    console.log("Extras parameters:", {
+        showAdHoardings: PARAMS.showAdHoardings,
+        adHoardingHeight: PARAMS.adHoardingHeight,
+        adHoardingOffsetFromPitch: PARAMS.adHoardingOffsetFromPitch
+    });
+    createStadiumExtras(PARAMS, stadiumGroup, standObjects, customAdHoardingTexture);
+    createStadiumFloodlights(PARAMS, stadiumGroup, scene);
     
     console.log('Stadium group children:', stadiumGroup.children.length);
 }

@@ -34,4 +34,6 @@ body {
   right: 10px;
   width: 280px !important;
   z-index: 2; /* Ensure Tweakpane is above the 3D view */
+  max-height: 90vh !important;
+  overflow-y: auto !important;
 }
