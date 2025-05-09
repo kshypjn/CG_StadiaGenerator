@@ -131,6 +131,13 @@ export function generateAllStands(allParams, groupToAddTo) {
         standGroup.name = `${def.name}StandGroup`;
         const { shape, totalProfileDepth, totalProfileHeightAtBack } = _createStandProfileShapeAndMetrics(activeStandParams);
         const standLength = (def.lengthParam === 'pitchLength') ? activeStandParams.pitchLength : activeStandParams.pitchWidth;
+
+        // Store metrics in userData for Extras.js to access
+        standGroup.userData.standLength = standLength;
+        standGroup.userData.totalProfileDepth = totalProfileDepth;
+        standGroup.userData.totalProfileHeightAtBack = totalProfileHeightAtBack;
+        standGroup.userData.definitionRotationY = def.rotationY;
+
         const extrudeSettings = { steps: 1, depth: standLength, bevelEnabled: false };
         const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
         const material = new THREE.MeshStandardMaterial({

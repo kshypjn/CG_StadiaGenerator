@@ -3,6 +3,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { Pane } from 'tweakpane';
 
 import { generateAllStands } from './js/stadium_elements/Stands.js'; 
+import { createStadiumExtras } from './js/stadium_elements/Extras.js';
 
 let scene, camera, renderer, controls;
 let stadiumGroup;
@@ -47,7 +48,19 @@ const PARAMS = {
     individualRoofTilt: Math.PI / 18,
     individualRoofThickness: 0.5,
     individualRoofColor: '#999999',
-    supportColor: '#555555'
+    supportColor: '#555555',
+    // --- Extras (Scoreboard & Ad Hoardings) ---
+    showScoreboard: true,
+    scoreboardWidth: 6,
+    scoreboardHeight: 2.5,
+    scoreboardTexturePath: '',
+    scoreboardHeightOffset: 2,
+    scoreboardStandIndex: 2, // 0=East, 1=West, 2=North, 3=South
+    scoreboardOffsetFromStandBack: 1,
+    showAdHoardings: true,
+    adHoardingHeight: 1,
+    adHoardingTexturePath: '',
+    adHoardingOffsetFromPitch: 2,
 };
 
 // --- INITIALIZATION ---
@@ -171,6 +184,22 @@ function init() {
     individualRoofFolder.addBinding(PARAMS, 'individualRoofColor', { view: 'color' }).on('change', regenerateStadium);
     individualRoofFolder.addBinding(PARAMS, 'supportColor', { view: 'color', label: 'Support Color' }).on('change', regenerateStadium);
 
+    // --- Extras Controls ---
+    const extrasFolder = pane.addFolder({ title: 'Extras' });
+    const scoreboardFolder = extrasFolder.addFolder({ title: 'Scoreboard' });
+    scoreboardFolder.addBinding(PARAMS, 'showScoreboard').on('change', regenerateStadium);
+    scoreboardFolder.addBinding(PARAMS, 'scoreboardWidth', { min: 2, max: 20, step: 0.1 }).on('change', regenerateStadium);
+    scoreboardFolder.addBinding(PARAMS, 'scoreboardHeight', { min: 1, max: 10, step: 0.1 }).on('change', regenerateStadium);
+    scoreboardFolder.addBinding(PARAMS, 'scoreboardHeightOffset', { min: 0, max: 10, step: 0.1 }).on('change', regenerateStadium);
+    scoreboardFolder.addBinding(PARAMS, 'scoreboardStandIndex', { min: 0, max: 3, step: 1, label: 'Stand (0=E,1=W,2=N,3=S)' }).on('change', regenerateStadium);
+    scoreboardFolder.addBinding(PARAMS, 'scoreboardOffsetFromStandBack', { min: 0, max: 10, step: 0.1 }).on('change', regenerateStadium);
+    scoreboardFolder.addBinding(PARAMS, 'scoreboardTexturePath').on('change', regenerateStadium);
+    const adFolder = extrasFolder.addFolder({ title: 'Ad Hoardings' });
+    adFolder.addBinding(PARAMS, 'showAdHoardings').on('change', regenerateStadium);
+    adFolder.addBinding(PARAMS, 'adHoardingHeight', { min: 0.5, max: 3, step: 0.05 }).on('change', regenerateStadium);
+    adFolder.addBinding(PARAMS, 'adHoardingOffsetFromPitch', { min: 0.5, max: 10, step: 0.1 }).on('change', regenerateStadium);
+    adFolder.addBinding(PARAMS, 'adHoardingTexturePath').on('change', regenerateStadium);
+
     // Initial generation
     regenerateStadium();
 
@@ -220,15 +249,38 @@ function regenerateStadium() {
         generateAllStands(PARAMS, stadiumGroup);
     }
     
+    // --- Collect standObjects for Extras.js ---
+    let standObjects = [];
+    stadiumGroup.children.forEach(child => {
+        if (child.isGroup && child.name && child.name.endsWith('StandGroup')) {
+            if (child.userData && child.userData.standLength !== undefined) {
+                standObjects.push({
+                    name: child.name,
+                    group: child,
+                    position: child.position.clone(),
+                    rotationY: child.rotation.y,
+                    standLength: child.userData.standLength,
+                    totalProfileDepth: child.userData.totalProfileDepth,
+                    totalProfileHeightAtBack: child.userData.totalProfileHeightAtBack
+                });
+                console.log(`Collected stand object: ${child.name}`, child.userData);
+            } else {
+                console.warn(`StandGroup ${child.name} is missing expected userData properties.`);
+            }
+        }
+    });
+    console.log("Stand objects collected for extras:", standObjects);
+    createStadiumExtras(PARAMS, stadiumGroup, standObjects);
+    
     console.log('Stadium group children:', stadiumGroup.children.length);
 }
 
 // --- PITCH CREATION ---
 function createPitch() {
-    const pitchMaterial = new THREE.MeshStandardMaterial({ color: 0x008000, side: THREE.DoubleSide }); // Green
+    const pitchMaterial = new THREE.MeshStandardMaterial({ color: 0x008000, side: THREE.DoubleSide });
     const pitchGeometry = new THREE.PlaneGeometry(PARAMS.pitchLength, PARAMS.pitchWidth);
     const pitchMesh = new THREE.Mesh(pitchGeometry, pitchMaterial);
-    pitchMesh.rotation.x = -Math.PI / 2; // Lay it flat
+    pitchMesh.rotation.x = -Math.PI / 2;
     pitchMesh.receiveShadow = true;
     stadiumGroup.add(pitchMesh);
 
@@ -236,55 +288,141 @@ function createPitch() {
     function createLine(width, height, depth, x, y, z, rotationY = 0) {
         const lineGeo = new THREE.BoxGeometry(width, height, depth);
         const line = new THREE.Mesh(lineGeo, lineMaterial);
-        line.position.set(x, y + 0.01, z);
+        line.position.set(x, y + PARAMS.lineWidth / 2 + 0.001, z);
         line.rotation.y = rotationY;
         line.castShadow = false;
-        line.receiveShadow = true;
         stadiumGroup.add(line);
     }
     const halfL = PARAMS.pitchLength / 2;
     const halfW = PARAMS.pitchWidth / 2;
+
+    // Boundary lines
     createLine(PARAMS.pitchLength, PARAMS.lineWidth, PARAMS.lineWidth, 0, 0, halfW);
     createLine(PARAMS.pitchLength, PARAMS.lineWidth, PARAMS.lineWidth, 0, 0, -halfW);
     createLine(PARAMS.lineWidth, PARAMS.lineWidth, PARAMS.pitchWidth, halfL, 0, 0);
     createLine(PARAMS.lineWidth, PARAMS.lineWidth, PARAMS.pitchWidth, -halfL, 0, 0);
     createLine(PARAMS.lineWidth, PARAMS.lineWidth, PARAMS.pitchWidth, 0, 0, 0);
+
+    // Center circle
     const centerCircleRadius = 9.15;
     const segments = 32;
     const points = [];
     for (let i = 0; i <= segments; i++) {
         const theta = (i / segments) * Math.PI * 2;
-        points.push(new THREE.Vector2(Math.cos(theta) * centerCircleRadius, Math.sin(theta) * centerCircleRadius));
+        points.push(new THREE.Vector3(Math.cos(theta) * centerCircleRadius, 0.01 + PARAMS.lineWidth/2, Math.sin(theta) * centerCircleRadius));
     }
-    const lineGeo = new THREE.BufferGeometry().setFromPoints(points);
-    const centerCircleLine = new THREE.Line(lineGeo, new THREE.LineBasicMaterial({ color: 0xffffff, linewidth: 2 }));
-    centerCircleLine.position.y = 0.01;
-    centerCircleLine.rotation.x = -Math.PI / 2;
+    const circleLineGeometry = new THREE.BufferGeometry().setFromPoints(points);
+    const circleLineMaterial = new THREE.LineBasicMaterial({ color: 0xffffff, linewidth: 2 });
+    const centerCircleLine = new THREE.LineLoop(circleLineGeometry, circleLineMaterial);
     stadiumGroup.add(centerCircleLine);
+
+    // Penalty Areas
     const penaltyAreaLength = 16.5;
     const penaltyAreaWidth = 40.32;
-    let paX = halfL - penaltyAreaLength / 2;
-    createLine(penaltyAreaLength, PARAMS.lineWidth, PARAMS.lineWidth, paX, 0, penaltyAreaWidth/2);
-    createLine(penaltyAreaLength, PARAMS.lineWidth, PARAMS.lineWidth, paX, 0, -penaltyAreaWidth/2);
-    createLine(PARAMS.lineWidth, PARAMS.lineWidth, penaltyAreaWidth, halfL - penaltyAreaLength, 0, 0);
-    paX = -halfL + penaltyAreaLength / 2;
-    createLine(penaltyAreaLength, PARAMS.lineWidth, PARAMS.lineWidth, paX, 0, penaltyAreaWidth/2);
-    createLine(penaltyAreaLength, PARAMS.lineWidth, PARAMS.lineWidth, paX, 0, -penaltyAreaWidth/2);
-    createLine(PARAMS.lineWidth, PARAMS.lineWidth, penaltyAreaWidth, -halfL + penaltyAreaLength, 0, 0);
+    const goalAreaLength = 5.5;
+    const goalAreaWidth = 18.32;
+    let paX = halfL - penaltyAreaLength;
+    createLine(penaltyAreaLength, PARAMS.lineWidth, PARAMS.lineWidth, halfL - penaltyAreaLength / 2, 0, penaltyAreaWidth / 2);
+    createLine(penaltyAreaLength, PARAMS.lineWidth, PARAMS.lineWidth, halfL - penaltyAreaLength / 2, 0, -penaltyAreaWidth / 2);
+    createLine(PARAMS.lineWidth, PARAMS.lineWidth, penaltyAreaWidth, paX, 0, 0);
+    paX = -halfL + penaltyAreaLength;
+    createLine(penaltyAreaLength, PARAMS.lineWidth, PARAMS.lineWidth, -halfL + penaltyAreaLength / 2, 0, penaltyAreaWidth / 2);
+    createLine(penaltyAreaLength, PARAMS.lineWidth, PARAMS.lineWidth, -halfL + penaltyAreaLength / 2, 0, -penaltyAreaWidth / 2);
+    createLine(PARAMS.lineWidth, PARAMS.lineWidth, penaltyAreaWidth, paX, 0, 0);
+
+    // Goals (cylindrical posts and crossbar)
     const goalDepth = 2;
     const goalWidth = 7.32;
     const goalHeight = 2.44;
-    const goalMaterial = new THREE.MeshStandardMaterial({ color: 0xcccccc });
-    const goal1Geo = new THREE.BoxGeometry(goalDepth, goalHeight, goalWidth);
-    const goal1 = new THREE.Mesh(goal1Geo, goalMaterial);
-    goal1.position.set(halfL + goalDepth / 2, goalHeight / 2, 0);
-    goal1.castShadow = true;
-    stadiumGroup.add(goal1);
-    const goal2Geo = new THREE.BoxGeometry(goalDepth, goalHeight, goalWidth);
-    const goal2 = new THREE.Mesh(goal2Geo, goalMaterial);
-    goal2.position.set(-halfL - goalDepth / 2, goalHeight / 2, 0);
-    goal2.castShadow = true;
-    stadiumGroup.add(goal2);
+    const goalPostRadius = 0.06;
+    const goalMaterial = new THREE.MeshStandardMaterial({ color: 0xeeeeee });
+    function createGoal(xOffset) {
+        const goalGroup = new THREE.Group();
+        const postGeo = new THREE.CylinderGeometry(goalPostRadius, goalPostRadius, goalHeight, 12);
+        const leftPost = new THREE.Mesh(postGeo, goalMaterial);
+        leftPost.position.set(xOffset, goalHeight / 2, goalWidth / 2);
+        leftPost.castShadow = true;
+        goalGroup.add(leftPost);
+        const rightPost = new THREE.Mesh(postGeo, goalMaterial);
+        rightPost.position.set(xOffset, goalHeight / 2, -goalWidth / 2);
+        rightPost.castShadow = true;
+        goalGroup.add(rightPost);
+        const crossbarGeo = new THREE.CylinderGeometry(goalPostRadius, goalPostRadius, goalWidth, 12);
+        const crossbar = new THREE.Mesh(crossbarGeo, goalMaterial);
+        crossbar.position.set(xOffset, goalHeight, 0);
+        crossbar.rotation.x = Math.PI / 2;
+        crossbar.castShadow = true;
+        goalGroup.add(crossbar);
+        stadiumGroup.add(goalGroup);
+    }
+    createGoal(halfL + goalPostRadius);
+    createGoal(-halfL - goalPostRadius);
+
+    // --- CORNER FLAGS ---
+    const flagPoleHeight = 1.5;
+    const flagPoleRadius = 0.05;
+    const flagHeight = 0.4;
+    const flagWidth = 0.5;
+    const flagPoleMaterial = new THREE.MeshStandardMaterial({ color: 0x333333 });
+    const cornerFlagMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000, side: THREE.DoubleSide });
+    const cornerFlagPositions = [
+        { x: halfL, z:  halfW, poleRotationOffset: 0 },
+        { x: halfL, z: -halfW, poleRotationOffset: Math.PI / 2 },
+        { x: -halfL, z: -halfW, poleRotationOffset: Math.PI },
+        { x: -halfL, z:  halfW, poleRotationOffset: -Math.PI / 2 }
+    ];
+    cornerFlagPositions.forEach(pos => {
+        const flagPole = new THREE.Mesh(
+            new THREE.CylinderGeometry(flagPoleRadius, flagPoleRadius, flagPoleHeight, 8),
+            flagPoleMaterial
+        );
+        flagPole.position.set(pos.x, flagPoleHeight / 2 + 0.01, pos.z);
+        flagPole.castShadow = true;
+        stadiumGroup.add(flagPole);
+
+        const flagShape = new THREE.Shape();
+        flagShape.moveTo(0, 0);
+        flagShape.lineTo(flagWidth, flagHeight / 2);
+        flagShape.lineTo(0, flagHeight);
+        flagShape.lineTo(0, 0);
+        const flagGeometry = new THREE.ShapeGeometry(flagShape);
+        const flagMesh = new THREE.Mesh(flagGeometry, cornerFlagMaterial);
+        flagMesh.position.set(
+            pos.x,
+            flagPoleHeight - (flagHeight / 2) + 0.01,
+            pos.z
+        );
+        flagMesh.rotation.y = pos.poleRotationOffset;
+        flagMesh.castShadow = true;
+        stadiumGroup.add(flagMesh);
+    });
+
+    // --- CORNER ARCS ---
+    const arcRadius = 1.0;
+    const arcSegments = 16;
+    const arcLineMaterial = new THREE.LineBasicMaterial({ color: 0xffffff, linewidth: 2 });
+    function createCornerArc(centerX, centerZ, startAngle, endAngle) {
+        const arcPoints = [];
+        for (let i = 0; i <= arcSegments; i++) {
+            const angle = startAngle + (endAngle - startAngle) * (i / arcSegments);
+            arcPoints.push(new THREE.Vector3(
+                centerX + Math.cos(angle) * arcRadius,
+                0.01 + PARAMS.lineWidth/2,
+                centerZ + Math.sin(angle) * arcRadius
+            ));
+        }
+        const arcGeometry = new THREE.BufferGeometry().setFromPoints(arcPoints);
+        const arc = new THREE.Line(arcGeometry, arcLineMaterial);
+        stadiumGroup.add(arc);
+    }
+    // Top-Right
+    createCornerArc(halfL, halfW, Math.PI, 3 * Math.PI / 2);
+    // Bottom-Right
+    createCornerArc(halfL, -halfW, Math.PI / 2, Math.PI);
+    // Bottom-Left
+    createCornerArc(-halfL, -halfW, 0, Math.PI / 2);
+    // Top-Left
+    createCornerArc(-halfL, halfW, 3 * Math.PI / 2, 2 * Math.PI);
 }
 
 // --- START ---
