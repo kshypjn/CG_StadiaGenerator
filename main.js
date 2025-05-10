@@ -11,14 +11,29 @@ let stadiumGroup;
 let customAdHoardingTexture = null; // To store the uploaded texture
 
 const PARAMS = {
+    // --- Stadium Type ---
+    stadiumType: 'football', // 'football' or 'cricket'
+
+    // --- Football Specific ---
     pitchLength: 100.6,
-    pitchWidth: 64.0,   
+    pitchWidth: 64.0,
     lineWidth: 0.15,
+
+    // --- Cricket Specific Parameters ---
+    cricketBoundaryRadiusX: 75,
+    cricketBoundaryRadiusZ: 65,
+    cricketWicketLength: 20.12,
+    cricketWicketWidth: 3.05,
+    cricketCreaseLineWidth: 0.05,
+    showSightScreens: true,
+    sightScreenWidth: 10,
+    sightScreenHeight: 5,
+    sightScreenColor: '#FFFFFF',
+
+    // --- Common Parameters ---
     showPitch: true,
-    stadiumType: 'football',
-    // --- Global Stand Settings ---
     showStands: true,
-    standOffsetFromPitch: 5,
+    standOffsetFromBoundary: 5,
     standFrontWallHeight: 1,
     standNumRows: 20,
     standRowStepHeight: 0.4,
@@ -26,7 +41,7 @@ const PARAMS = {
     standWalkwayAtTopDepth: 2,
     standBackWallHeight: 3,
     standColor: '#888888',
-    // --- Individual Stand Control ---
+    numStandSegmentsCricket: 16,
     useIndividualStandSettings: false,
     stands: [
         { name: 'East Stand', show: true, offsetFromPitch: 1, frontWallHeight: 1, numRows: 20, rowStepHeight: 0.4, rowStepDepth: 0.8, walkwayAtTopDepth: 2, backWallHeight: 3, color: '#888888' },
@@ -34,9 +49,56 @@ const PARAMS = {
         { name: 'North Stand', show: true, offsetFromPitch: 1, frontWallHeight: 1, numRows: 20, rowStepHeight: 0.4, rowStepDepth: 0.8, walkwayAtTopDepth: 2, backWallHeight: 3, color: '#888888' },
         { name: 'South Stand', show: true, offsetFromPitch: 1, frontWallHeight: 1, numRows: 20, rowStepHeight: 0.4, rowStepDepth: 0.8, walkwayAtTopDepth: 2, backWallHeight: 3, color: '#888888' }
     ],
+    roofType: 'individual',
+    showAdHoardings: true,
+    adHoardingHeight: 1,
+    adHoardingOffsetFromBoundary: 1,
+    adHoardingColor: '#9400ff',
+    adHoardingEmissiveIntensity: 0.5,
+    showScoreboard: true,
+    scoreboardStandName: 'PavilionEnd',
+    showFloodlights: true,
+    floodlightTowerHeight: 38,
+    numFloodlightTowersCricket: 6,
+    // --- Camera Presets ---
+    cameraPreset: 'default', // 'default', 'pitch_side', 'corner', 'aerial'
+    cameraPresetPositions: {
+        default: { position: [0, 100, 200], target: [0, 0, 0] },
+        pitch_side: { position: [150, 50, 0], target: [0, 0, 0] },
+        corner: { position: [100, 80, 100], target: [0, 0, 0] },
+        aerial: { position: [0, 200, 0], target: [0, 0, 0] }
+    },
+    // --- Global Stand Settings ---
+    standOffsetFromPitch: 5,
+    standFrontWallHeight: 1,
+    standNumRows: 20,
+    standRowStepHeight: 0.4,
+    standRowStepDepth: 0.8,
+    standWalkwayAtTopDepth: 2,
+    standBackWallHeight: 3,
+    // --- Scoreboard Settings ---
+    scoreboardWidth: 18,
+    scoreboardHeight: 7,
+    scoreboardFrameThickness: 0.4,
+    scoreboardFrameColor: '#282828',
+    scoreboardScreenColor: '#101018',
+    scoreboardTextColor: '#FFFFFF',
+    scoreboardTeamA: 'HOME',
+    scoreboardScoreA: 0,
+    scoreboardTeamB: 'AWAY',
+    scoreboardScoreB: 0,
+    scoreboardGameTime: "00:00",
+    scoreboardTimeFontSize: 40,
+    scoreboardTeamFontSize: 35,
+    scoreboardScoreFontSize: 70,
+    scoreboardEmissiveIntensity: 0.9,
+    // Positioning ON TOP of the target stand's ROOF:
+    scoreboardOffsetY_fromRoof: 1.0,
+    scoreboardOffsetZ_localToStand: 0,
+    scoreboardOffsetDepth_onRoof: 0,
+    scoreboardSupportHeight: 3,
+    scoreboardSupportColor: '#444444',
     // --- Roof Settings ---
-    roofType: 'individual', // 'none', 'overall', 'individual' (default: individual)
-    // Overall roof params
     overallRoofHeight: 35,
     overallRoofOverhang: 5,
     overallRoofColor: '#777777',
@@ -53,53 +115,59 @@ const PARAMS = {
     supportColor: '#555555',
     // --- Extras (Ad Hoardings) ---
     showAdHoardings: true,
-    adHoardingHeight: 1,
     adHoardingOffsetFromPitch: 2,
-    adHoardingColor: '#00aaff', // Default color if no texture
-    adHoardingEmissiveIntensity: 0.5, // For LED glow effect
-    // --- Floodlights ---
     showFloodlights: true,
-    floodlightTowerHeight: 38,
     floodlightTowerColor: '#cccccc',
-    numLightsPerTower: 3, // Lowered for performance
-    spotlightColorPreset: 0xfff8e1, // default: Warm White
+    numLightsPerTower: 3, 
+    spotlightColorPreset: 0xfff8e1, 
     spotlightIntensity: 2.5,
     spotlightAngle: Math.PI / 7,
     spotlightPenumbra: 0.3,
     spotlightDistance: 250,
-    showSpotlightHelpers: false, // Default off for performance
-    // --- Ribbon Display / LED Strip Scoreboard Settings ---
-    showRibbonDisplays: true,
-    ribbonDisplayHeight: 0.8, // Height of the LED strip
-    ribbonDisplayTier: 'lower_back', // 'lower_back', 'upper_front'
-    ribbonDisplayOffsetY: 0.2, // Fine-tune Y position
-    ribbonDisplayColor: '#101028',
-    ribbonDisplayTextColor: '#FFFFFF',
-    ribbonDisplayTeamA: 'HOME',
-    ribbonDisplayScoreA: 0,
-    ribbonDisplayTeamB: 'AWAY',
-    ribbonDisplayScoreB: 0,
-    ribbonDisplayGameTime: "00:00",
-    ribbonDisplayEmissiveIntensity: 0.7,
+    showSpotlightHelpers: false, 
+    // --- Time of Day / Lighting Cycle ---
+    timeOfDay: 'day', // 'day' or 'night'
+    sunColors: {
+        day: '#FFFFFF',
+        night: '#6a8cff', // Soft moonlight blue
+    },
+    ambientColors: {
+        day: '#888888',
+        night: '#223366', // Dim blue ambient
+    },
+    sunIntensity: {
+        day: 1.0,
+        night: 0.12, // Brighter moonlight
+    },
+    ambientIntensity: {
+        day: 0.6,
+        night: 0.25, // Brighter ambient
+    },
+    skyColors: {
+        day: '#87CEEB',
+        night: '#0a0a22', // Deep blue night sky
+    },
+    enableFloodlightsAtNight: true,
 };
 
-// --- INITIALIZATION ---
-function init() {
-    // Scene
-    scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x87ceeb); // Sky blue
+// --- GLOBALS FOR LIGHTING ---
+let mainDirectionalLight, mainAmbientLight;
+let lastTimeUpdate = Date.now();
 
-    // Camera
+function init() {
+
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x87ceeb);
+
     camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.set(0, 100, 200); // Adjusted position to see more of the stadium
+    camera.position.set(0, 100, 200); 
     camera.lookAt(0, 0, 0);
 
-    // Renderer
     const container = document.getElementById('container');
     renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5)); // Lower pixel ratio for performance
-    renderer.shadowMap.enabled = false; // Disable shadows for performance
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); 
+    renderer.shadowMap.enabled = false;
     container.appendChild(renderer.domElement);
 
     // Add debug logging
@@ -119,6 +187,7 @@ function init() {
     // Lighting
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
     scene.add(ambientLight);
+    mainAmbientLight = ambientLight;
 
     const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
     directionalLight.position.set(50, 100, 75);
@@ -132,6 +201,7 @@ function init() {
     directionalLight.shadow.camera.top = 150;
     directionalLight.shadow.camera.bottom = -150;
     scene.add(directionalLight);
+    mainDirectionalLight = directionalLight;
 
     // Stadium Group
     stadiumGroup = new THREE.Group();
@@ -139,8 +209,104 @@ function init() {
 
     // --- TWEAKPANE UI ---
     const pane = new Pane({ title: 'Stadium Controls' });
-    const pitchFolder = pane.addFolder({ title: 'Pitch' });
-    pitchFolder.addBinding(PARAMS, 'showPitch').on('change', regenerateStadium);
+
+    // Stadium type toggle
+    const stadiumTypeBinding = pane.addBinding(PARAMS, 'stadiumType', {
+        options: { Football: 'football', Cricket: 'cricket' }
+    });
+
+    // Football and cricket folders
+    const footballParamsFolder = pane.addFolder({ title: 'Football Settings', hidden: PARAMS.stadiumType !== 'football' });
+    const cricketParamsFolder = pane.addFolder({ title: 'Cricket Settings', hidden: PARAMS.stadiumType === 'football' });
+
+    stadiumTypeBinding.on('change', (ev) => {
+        footballParamsFolder.hidden = ev.value !== 'football';
+        cricketParamsFolder.hidden = ev.value !== 'cricket';
+        regenerateStadium();
+    });
+
+    // Football pitch controls
+    const footballPitchFolder = footballParamsFolder.addFolder({ title: 'Football Pitch' });
+    footballPitchFolder.addBinding(PARAMS, 'pitchLength', { min: 90, max: 120, step: 0.1 }).on('change', regenerateStadium);
+    footballPitchFolder.addBinding(PARAMS, 'pitchWidth', { min: 45, max: 90, step: 0.1 }).on('change', regenerateStadium);
+    footballPitchFolder.addBinding(PARAMS, 'lineWidth', { min: 0.1, max: 0.2, step: 0.01 }).on('change', regenerateStadium);
+    footballPitchFolder.addBinding(PARAMS, 'showPitch').on('change', regenerateStadium);
+    footballPitchFolder.addBinding(PARAMS, 'showStands').on('change', regenerateStadium);
+    footballPitchFolder.addBinding(PARAMS, 'standOffsetFromPitch', { min: 1, max: 20, step: 0.5 }).on('change', regenerateStadium);
+    footballPitchFolder.addBinding(PARAMS, 'standFrontWallHeight', { min: 0.2, max: 3, step: 0.1 }).on('change', regenerateStadium);
+    footballPitchFolder.addBinding(PARAMS, 'standNumRows', { min: 5, max: 60, step: 1 }).on('change', regenerateStadium);
+    footballPitchFolder.addBinding(PARAMS, 'standRowStepHeight', { min: 0.2, max: 1, step: 0.05 }).on('change', regenerateStadium);
+    footballPitchFolder.addBinding(PARAMS, 'standRowStepDepth', { min: 0.5, max: 1.5, step: 0.05 }).on('change', regenerateStadium);
+    footballPitchFolder.addBinding(PARAMS, 'standWalkwayAtTopDepth', { min: 0, max: 10, step: 0.5 }).on('change', regenerateStadium);
+    footballPitchFolder.addBinding(PARAMS, 'standBackWallHeight', { min: 0, max: 10, step: 0.5 }).on('change', regenerateStadium);
+    footballPitchFolder.addBinding(PARAMS, 'standColor', { view: 'color' }).on('change', regenerateStadium);
+
+    // --- Camera Controls ---
+    const cameraFolder = pane.addFolder({ title: 'Camera' });
+    cameraFolder.addBinding(PARAMS, 'cameraPreset', {
+        options: {
+            'Default View': 'default',
+            'Pitch Side': 'pitch_side',
+            'Corner View': 'corner',
+            'Aerial View': 'aerial'
+        }
+    }).on('change', (ev) => {
+        const preset = PARAMS.cameraPresetPositions[ev.value];
+        if (preset) {
+            // Animate camera movement
+            const startPosition = camera.position.clone();
+            const startTarget = controls.target.clone();
+            const endPosition = new THREE.Vector3(...preset.position);
+            const endTarget = new THREE.Vector3(...preset.target);
+            
+            const duration = 1000; // 1 second animation
+            const startTime = Date.now();
+            
+            function animateCamera() {
+                const elapsed = Date.now() - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                
+                const easeProgress = progress < 0.5 
+                    ? 2 * progress * progress 
+                    : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+                
+                camera.position.lerpVectors(startPosition, endPosition, easeProgress);
+                controls.target.lerpVectors(startTarget, endTarget, easeProgress);
+                
+                if (progress < 1) {
+                    requestAnimationFrame(animateCamera);
+                }
+            }
+            
+            animateCamera();
+        }
+    });
+
+    // Add camera position adjustment controls
+    const cameraPositionFolder = cameraFolder.addFolder({ title: 'Adjust Current View' });
+    cameraPositionFolder.addBinding(camera.position, 'x', { min: -300, max: 300, step: 1, label: 'X Position' });
+    cameraPositionFolder.addBinding(camera.position, 'y', { min: 0, max: 300, step: 1, label: 'Y Position' });
+    cameraPositionFolder.addBinding(camera.position, 'z', { min: -300, max: 300, step: 1, label: 'Z Position' });
+    cameraPositionFolder.addBinding(controls.target, 'x', { min: -100, max: 100, step: 1, label: 'Target X' });
+    cameraPositionFolder.addBinding(controls.target, 'y', { min: -100, max: 100, step: 1, label: 'Target Y' });
+    cameraPositionFolder.addBinding(controls.target, 'z', { min: -100, max: 100, step: 1, label: 'Target Z' });
+
+    // Add a button to save current view as a preset
+    const savePresetBtn = cameraFolder.addButton({ title: 'Save Current View' });
+    savePresetBtn.on('click', () => {
+        const presetName = prompt('Enter a name for this camera preset:', 'custom_preset');
+        if (presetName) {
+            PARAMS.cameraPresetPositions[presetName] = {
+                position: [camera.position.x, camera.position.y, camera.position.z],
+                target: [controls.target.x, controls.target.y, controls.target.z]
+            };
+            const presetBinding = cameraFolder.children[0];
+            const newOptions = { ...presetBinding.options };
+            newOptions[presetName] = presetName;
+            presetBinding.options = newOptions;
+        }
+    });
+
     // --- Stands Global ---
     const standsFolder = pane.addFolder({ title: 'Stands Global Settings' });
     standsFolder.addBinding(PARAMS, 'showStands').on('change', regenerateStadium);
@@ -213,20 +379,32 @@ function init() {
     adFolder.addBinding(PARAMS, 'adHoardingColor', { view: 'color', label: 'Default Color' }).on('change', regenerateStadium);
     adFolder.addBinding(PARAMS, 'adHoardingEmissiveIntensity', { min: 0, max: 2, step: 0.05, label: 'LED Glow' }).on('change', regenerateStadium);
 
-    // --- Ribbon LED Displays Controls ---
-    const ribbonFolder = extrasFolder.addFolder({ title: 'Ribbon LED Displays' });
-    ribbonFolder.addBinding(PARAMS, 'showRibbonDisplays').on('change', regenerateStadium);
-    ribbonFolder.addBinding(PARAMS, 'ribbonDisplayHeight', { min: 0.3, max: 2.0, step: 0.05 }).on('change', regenerateStadium);
-    ribbonFolder.addBinding(PARAMS, 'ribbonDisplayTier', { options: { 'Lower Tier Back': 'lower_back', 'Upper Tier Front': 'upper_front'} }).on('change', regenerateStadium);
-    ribbonFolder.addBinding(PARAMS, 'ribbonDisplayOffsetY', { min: -1, max: 2, step: 0.05 }).on('change', regenerateStadium);
-    ribbonFolder.addBinding(PARAMS, 'ribbonDisplayColor', { view: 'color' }).on('change', regenerateStadium);
-    ribbonFolder.addBinding(PARAMS, 'ribbonDisplayTextColor', { view: 'color' }).on('change', regenerateStadium);
-    ribbonFolder.addBinding(PARAMS, 'ribbonDisplayTeamA', {label: 'Team A Name'}).on('change', regenerateStadium);
-    ribbonFolder.addBinding(PARAMS, 'ribbonDisplayScoreA', { min: 0, max: 99, step: 1, label: 'Team A Score' }).on('change', regenerateStadium);
-    ribbonFolder.addBinding(PARAMS, 'ribbonDisplayTeamB', {label: 'Team B Name'}).on('change', regenerateStadium);
-    ribbonFolder.addBinding(PARAMS, 'ribbonDisplayScoreB', { min: 0, max: 99, step: 1, label: 'Team B Score' }).on('change', regenerateStadium);
-    ribbonFolder.addBinding(PARAMS, 'ribbonDisplayGameTime', {label: 'Game Time/Msg'}).on('change', regenerateStadium);
-    ribbonFolder.addBinding(PARAMS, 'ribbonDisplayEmissiveIntensity', { min: 0, max: 2, step: 0.05 }).on('change', regenerateStadium);
+    // --- Scoreboard Controls ---
+    const scoreboardFolder = extrasFolder.addFolder({ title: 'Main Scoreboard' });
+    scoreboardFolder.addBinding(PARAMS, 'showScoreboard').on('change', regenerateStadium);
+    scoreboardFolder.addBinding(PARAMS, 'scoreboardStandName', {
+        options: { North: 'North', South: 'South', East: 'East', West: 'West' }
+    }).on('change', regenerateStadium);
+    scoreboardFolder.addBinding(PARAMS, 'scoreboardWidth', { min: 5, max: 40, step: 0.5 }).on('change', regenerateStadium);
+    scoreboardFolder.addBinding(PARAMS, 'scoreboardHeight', { min: 2, max: 15, step: 0.5 }).on('change', regenerateStadium);
+    scoreboardFolder.addBinding(PARAMS, 'scoreboardFrameThickness', { min: 0.1, max: 2, step: 0.05 }).on('change', regenerateStadium);
+    scoreboardFolder.addBinding(PARAMS, 'scoreboardFrameColor', { view: 'color' }).on('change', regenerateStadium);
+    scoreboardFolder.addBinding(PARAMS, 'scoreboardScreenColor', { view: 'color' }).on('change', regenerateStadium);
+    scoreboardFolder.addBinding(PARAMS, 'scoreboardTextColor', { view: 'color' }).on('change', regenerateStadium);
+    scoreboardFolder.addBinding(PARAMS, 'scoreboardTeamA').on('change', regenerateStadium);
+    scoreboardFolder.addBinding(PARAMS, 'scoreboardScoreA', { min: 0, max: 99, step: 1 }).on('change', regenerateStadium);
+    scoreboardFolder.addBinding(PARAMS, 'scoreboardTeamB').on('change', regenerateStadium);
+    scoreboardFolder.addBinding(PARAMS, 'scoreboardScoreB', { min: 0, max: 99, step: 1 }).on('change', regenerateStadium);
+    scoreboardFolder.addBinding(PARAMS, 'scoreboardGameTime').on('change', regenerateStadium);
+    scoreboardFolder.addBinding(PARAMS, 'scoreboardTimeFontSize', { min: 10, max: 100, step: 1 }).on('change', regenerateStadium);
+    scoreboardFolder.addBinding(PARAMS, 'scoreboardTeamFontSize', { min: 10, max: 100, step: 1 }).on('change', regenerateStadium);
+    scoreboardFolder.addBinding(PARAMS, 'scoreboardScoreFontSize', { min: 20, max: 150, step: 1 }).on('change', regenerateStadium);
+    scoreboardFolder.addBinding(PARAMS, 'scoreboardEmissiveIntensity', { min: 0, max: 3, step: 0.05 }).on('change', regenerateStadium);
+    scoreboardFolder.addBinding(PARAMS, 'scoreboardOffsetY_fromRoof', { min: -2, max: 15, step: 0.1 }).on('change', regenerateStadium);
+    scoreboardFolder.addBinding(PARAMS, 'scoreboardOffsetZ_localToStand', { min: -20, max: 20, step: 0.1, label: 'Offset Along Stand' }).on('change', regenerateStadium);
+    scoreboardFolder.addBinding(PARAMS, 'scoreboardOffsetDepth_onRoof', { min: 0, max: 10, step: 0.1, label: 'Offset Behind Stand' }).on('change', regenerateStadium);
+    scoreboardFolder.addBinding(PARAMS, 'scoreboardSupportHeight', { min: 0, max: 10, step: 0.1 }).on('change', regenerateStadium);
+    scoreboardFolder.addBinding(PARAMS, 'scoreboardSupportColor', { view: 'color', label: 'Support Color' }).on('change', regenerateStadium);
 
     // --- Floodlights Controls ---
     const floodFolder = pane.addFolder({ title: 'Floodlights' });
@@ -246,6 +424,26 @@ function init() {
     floodFolder.addBinding(PARAMS, 'spotlightPenumbra', { min: 0, max: 1, step: 0.01 }).on('change', regenerateStadium);
     floodFolder.addBinding(PARAMS, 'spotlightDistance', { min: 50, max: 500, step: 1 }).on('change', regenerateStadium);
     floodFolder.addBinding(PARAMS, 'showSpotlightHelpers').on('change', regenerateStadium);
+
+    // --- Lighting & Time of Day Controls ---
+    const lightingFolder = pane.addFolder({ title: 'Lighting & Time of Day' });
+    lightingFolder.addBinding(PARAMS, 'timeOfDay', {
+        options: { Day: 'day', Night: 'night' }
+    }).on('change', updateLightingBasedOnTime);
+    lightingFolder.addBinding(PARAMS, 'enableFloodlightsAtNight');
+
+    // --- Cricket Pitch and Stands Stubs ---
+    const cricketPitchFolder = cricketParamsFolder.addFolder({ title: 'Cricket Pitch & Boundary' });
+    cricketPitchFolder.addBinding(PARAMS, 'cricketBoundaryRadiusX', { min: 50, max: 100, step: 0.5, label: 'Boundary Radius X' }).on('change', regenerateStadium);
+    cricketPitchFolder.addBinding(PARAMS, 'cricketBoundaryRadiusZ', { min: 50, max: 100, step: 0.5, label: 'Boundary Radius Z' }).on('change', regenerateStadium);
+    cricketPitchFolder.addBinding(PARAMS, 'cricketWicketLength', { min: 15, max: 25, step: 0.01 }).on('change', regenerateStadium);
+    cricketPitchFolder.addBinding(PARAMS, 'cricketWicketWidth', { min: 2, max: 4, step: 0.01 }).on('change', regenerateStadium);
+    cricketPitchFolder.addBinding(PARAMS, 'showSightScreens').on('change', regenerateStadium);
+    cricketPitchFolder.addBinding(PARAMS, 'sightScreenWidth', { min: 5, max: 20, step: 0.5 }).on('change', regenerateStadium);
+    cricketPitchFolder.addBinding(PARAMS, 'sightScreenHeight', { min: 2, max: 10, step: 0.5 }).on('change', regenerateStadium);
+    cricketPitchFolder.addBinding(PARAMS, 'sightScreenColor', { view: 'color' }).on('change', regenerateStadium);
+    cricketPitchFolder.addBinding(PARAMS, 'standOffsetFromBoundary', { min: 1, max: 20, step: 0.5 }).on('change', regenerateStadium);
+    cricketPitchFolder.addBinding(PARAMS, 'numStandSegmentsCricket', { min: 8, max: 32, step: 1, label: 'Stand Segments (Oval)' }).on('change', regenerateStadium);
 
     // --- Tweakpane Image Upload Button ---
     // Create a hidden file input for image upload
@@ -294,8 +492,8 @@ function init() {
         regenerateStadium();
     });
 
-    // Initial generation
-    regenerateStadium();
+    updateLightingBasedOnTime(); // Set initial lighting state
+    regenerateStadium(); // Initial full build
 
     window.addEventListener('resize', onWindowResize, false);
     animate();
@@ -311,16 +509,16 @@ function onWindowResize() {
 // --- ANIMATION LOOP ---
 function animate() {
     requestAnimationFrame(animate);
+    const now = Date.now();
+    const delta = (now - lastTimeUpdate) / 1000;
+    lastTimeUpdate = now;
     controls.update();
-    // If you want to update helpers, do it only if showSpotlightHelpers is true and only for visible helpers
-    // (No per-frame helper updates for performance)
     renderer.render(scene, camera);
 }
 
 // --- STADIUM GENERATION LOGIC ---
 function regenerateStadium() {
-    console.log('Regenerating stadium...');
-    // Clear previous stadium
+    console.log(`Regenerating stadium as type: ${PARAMS.stadiumType}`);
     while (stadiumGroup.children.length > 0) {
         const child = stadiumGroup.children[0];
         stadiumGroup.remove(child);
@@ -333,16 +531,12 @@ function regenerateStadium() {
             }
         }
     }
-
-    if (PARAMS.showPitch) {
-        console.log('Creating pitch...');
-        createPitch();
-    }
-
-    // Use the imported function to generate stands
-    if (PARAMS.showStands) {
-        console.log('Generating stands...');
-        generateAllStands(PARAMS, stadiumGroup);
+    if (PARAMS.stadiumType === 'football') {
+        if (PARAMS.showPitch) createPitch();
+        if (PARAMS.showStands) generateAllStands(PARAMS, stadiumGroup);
+    } else if (PARAMS.stadiumType === 'cricket') {
+        if (PARAMS.showPitch) createCricketPitchAndBoundary();
+        if (PARAMS.showStands) generateCricketStands(PARAMS, stadiumGroup);
     }
     
     // --- Collect standObjects for Extras.js ---
@@ -382,9 +576,30 @@ function regenerateStadium() {
     console.log('Stadium group children:', stadiumGroup.children.length);
 }
 
+// --- STRIPED PITCH TEXTURE ---
+function createStripedPitchTexture(width, height, numStripes = 8) {
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    const stripeWidth = width / numStripes;
+    const colorA = '#388E3C'; // Darker green
+    const colorB = '#43A047'; // Lighter green
+    for (let i = 0; i < numStripes; i++) {
+        ctx.fillStyle = (i % 2 === 0) ? colorA : colorB;
+        ctx.fillRect(i * stripeWidth, 0, stripeWidth, height);
+    }
+    return new THREE.CanvasTexture(canvas);
+}
+
 // --- PITCH CREATION ---
 function createPitch() {
-    const pitchMaterial = new THREE.MeshStandardMaterial({ color: 0x008000, side: THREE.DoubleSide });
+    // Use striped texture for pitch
+    const pitchTexture = createStripedPitchTexture(1024, 512, 8); // 8 stripes
+    pitchTexture.wrapS = THREE.ClampToEdgeWrapping;
+    pitchTexture.wrapT = THREE.ClampToEdgeWrapping;
+    pitchTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+    const pitchMaterial = new THREE.MeshStandardMaterial({ map: pitchTexture, side: THREE.DoubleSide });
     const pitchGeometry = new THREE.PlaneGeometry(PARAMS.pitchLength, PARAMS.pitchWidth);
     const pitchMesh = new THREE.Mesh(pitchGeometry, pitchMaterial);
     pitchMesh.rotation.x = -Math.PI / 2;
@@ -532,5 +747,58 @@ function createPitch() {
     createCornerArc(-halfL, halfW, 3 * Math.PI / 2, 2 * Math.PI);
 }
 
-// --- START ---
+function getLightingPreset(time) {
+    if (time >= 5 && time < 7) return 'dawn';
+    if (time >= 7 && time < 18) return 'day';
+    if (time >= 18 && time < 20) return 'dusk';
+    return 'night';
+}
+
+function lerpColor(colorA, colorB, factor) {
+    const cA = new THREE.Color(colorA);
+    const cB = new THREE.Color(colorB);
+    return cA.lerp(cB, factor);
+}
+
+function lerpFloat(valA, valB, factor) {
+    return valA * (1 - factor) + valB * factor;
+}
+
+function updateLightingBasedOnTime() {
+    const isDay = PARAMS.timeOfDay === 'day';
+    const sunColor = isDay ? PARAMS.sunColors.day : PARAMS.sunColors.night;
+    const ambientColor = isDay ? PARAMS.ambientColors.day : PARAMS.ambientColors.night;
+    const skyColor = isDay ? PARAMS.skyColors.day : PARAMS.skyColors.night;
+    const sunIntensity = isDay ? PARAMS.sunIntensity.day : PARAMS.sunIntensity.night;
+    const ambientIntensity = isDay ? PARAMS.ambientIntensity.day : PARAMS.ambientIntensity.night;
+
+    if (mainDirectionalLight) {
+        mainDirectionalLight.color.set(sunColor);
+        mainDirectionalLight.intensity = sunIntensity;
+        mainDirectionalLight.position.set(50, isDay ? 100 : 20, 75);
+    }
+    if (mainAmbientLight) {
+        mainAmbientLight.color.set(ambientColor);
+        mainAmbientLight.intensity = ambientIntensity;
+    }
+    if (scene) {
+        scene.background.set(skyColor);
+        scene.fog = new THREE.Fog(skyColor, 150, 500);
+    }
+    if (PARAMS.enableFloodlightsAtNight) {
+        if (!isDay && !PARAMS.showFloodlights) {
+            PARAMS.showFloodlights = true;
+            regenerateStadium();
+        }
+    }
+}
+
+// --- Cricket Pitch and Stands Stubs ---
+function createCricketPitchAndBoundary() {
+    // TODO: Implement cricket pitch, boundary, wicket, creases, sight screens
+}
+function generateCricketStands(params, group) {
+    // TODO: Implement cricket stand segments around oval
+}
+
 init();
