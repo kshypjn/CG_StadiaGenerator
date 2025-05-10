@@ -192,7 +192,7 @@ export function createStadiumExtras(allParams, stadiumGroup, standObjects = [], 
     extrasGroup.name = 'ExtrasGroup';
 
     // --- ADVERTISING HOARDINGS ---
-    if (allParams.showAdHoardings) {
+    if (allParams.showAdHoardings && allParams.stadiumType !== 'cricket') {
         console.log("Creating ad hoardings...");
         const adHeight = allParams.adHoardingHeight;
         const adOffset = allParams.adHoardingOffsetFromPitch;

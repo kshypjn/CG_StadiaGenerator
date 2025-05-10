@@ -8,27 +8,21 @@ import { createStadiumFloodlights } from './js/stadium_elements/Floodlights.js';
 
 let scene, camera, renderer, controls;
 let stadiumGroup;
-let customAdHoardingTexture = null; // To store the uploaded texture
+let customAdHoardingTexture = null;
 
 const PARAMS = {
-    // --- Stadium Type ---
-    stadiumType: 'football', // 'football' or 'cricket'
+    
+    stadiumType: 'football', 
 
-    // --- Football Specific ---
     pitchLength: 100.6,
     pitchWidth: 64.0,
     lineWidth: 0.15,
 
-    // --- Cricket Specific Parameters ---
     cricketBoundaryRadiusX: 75,
     cricketBoundaryRadiusZ: 65,
     cricketWicketLength: 20.12,
-    cricketWicketWidth: 3.05,
+    cricketWicketWidth: 4.0,
     cricketCreaseLineWidth: 0.05,
-    showSightScreens: true,
-    sightScreenWidth: 10,
-    sightScreenHeight: 5,
-    sightScreenColor: '#FFFFFF',
 
     // --- Common Parameters ---
     showPitch: true,
@@ -41,7 +35,6 @@ const PARAMS = {
     standWalkwayAtTopDepth: 2,
     standBackWallHeight: 3,
     standColor: '#888888',
-    numStandSegmentsCricket: 16,
     useIndividualStandSettings: false,
     stands: [
         { name: 'East Stand', show: true, offsetFromPitch: 1, frontWallHeight: 1, numRows: 20, rowStepHeight: 0.4, rowStepDepth: 0.8, walkwayAtTopDepth: 2, backWallHeight: 3, color: '#888888' },
@@ -56,7 +49,7 @@ const PARAMS = {
     adHoardingColor: '#9400ff',
     adHoardingEmissiveIntensity: 0.5,
     showScoreboard: true,
-    scoreboardStandName: 'PavilionEnd',
+    scoreboardStandName: 'North',
     showFloodlights: true,
     floodlightTowerHeight: 38,
     numFloodlightTowersCricket: 6,
@@ -148,6 +141,21 @@ const PARAMS = {
         night: '#0a0a22', // Deep blue night sky
     },
     enableFloodlightsAtNight: true,
+    // --- Cricket Pitch & Field Parameters ---
+    showCricketPitch: true,
+    cricketOutfieldColor: '#228B22',
+    cricketBoundaryRadiusX: 75,
+    cricketBoundaryRadiusZ: 65,
+    cricketBoundaryRopeColor: '#FFFFFF',
+    cricketBoundaryRopeRadius: 0.15,
+    cricketWicketLength: 20.12,
+    cricketWicketWidth: 4.0,
+    cricketCreaseLineWidth: 0.05,
+    cricket30YardCircleRadiusX: 27.43,
+    cricket30YardCircleRadiusZ: 27.43,
+    cricket30YardCircleColor: '#FFFFFF',
+    cricketInnerCircleLineThickness: 0.08,
+    numStandSegmentsCricket: 4, // Number of stand segments for cricket stadium
 };
 
 // --- GLOBALS FOR LIGHTING ---
@@ -436,14 +444,15 @@ function init() {
     const cricketPitchFolder = cricketParamsFolder.addFolder({ title: 'Cricket Pitch & Boundary' });
     cricketPitchFolder.addBinding(PARAMS, 'cricketBoundaryRadiusX', { min: 50, max: 100, step: 0.5, label: 'Boundary Radius X' }).on('change', regenerateStadium);
     cricketPitchFolder.addBinding(PARAMS, 'cricketBoundaryRadiusZ', { min: 50, max: 100, step: 0.5, label: 'Boundary Radius Z' }).on('change', regenerateStadium);
-    cricketPitchFolder.addBinding(PARAMS, 'cricketWicketLength', { min: 15, max: 25, step: 0.01 }).on('change', regenerateStadium);
-    cricketPitchFolder.addBinding(PARAMS, 'cricketWicketWidth', { min: 2, max: 4, step: 0.01 }).on('change', regenerateStadium);
-    cricketPitchFolder.addBinding(PARAMS, 'showSightScreens').on('change', regenerateStadium);
-    cricketPitchFolder.addBinding(PARAMS, 'sightScreenWidth', { min: 5, max: 20, step: 0.5 }).on('change', regenerateStadium);
-    cricketPitchFolder.addBinding(PARAMS, 'sightScreenHeight', { min: 2, max: 10, step: 0.5 }).on('change', regenerateStadium);
-    cricketPitchFolder.addBinding(PARAMS, 'sightScreenColor', { view: 'color' }).on('change', regenerateStadium);
-    cricketPitchFolder.addBinding(PARAMS, 'standOffsetFromBoundary', { min: 1, max: 20, step: 0.5 }).on('change', regenerateStadium);
-    cricketPitchFolder.addBinding(PARAMS, 'numStandSegmentsCricket', { min: 8, max: 32, step: 1, label: 'Stand Segments (Oval)' }).on('change', regenerateStadium);
+    cricketPitchFolder.addBinding(PARAMS, 'showCricketPitch').on('change', regenerateStadium);
+    cricketPitchFolder.addBinding(PARAMS, 'cricketOutfieldColor', { view: 'color' }).on('change', regenerateStadium);
+    cricketPitchFolder.addBinding(PARAMS, 'cricketBoundaryRopeColor', { view: 'color' }).on('change', regenerateStadium);
+    cricketPitchFolder.addBinding(PARAMS, 'cricketBoundaryRopeRadius', { min: 0.05, max: 0.5, step: 0.01 }).on('change', regenerateStadium);
+    cricketPitchFolder.addBinding(PARAMS, 'cricketCreaseLineWidth', { min: 0.02, max: 0.1, step: 0.01 }).on('change', regenerateStadium);
+    cricketPitchFolder.addBinding(PARAMS, 'cricket30YardCircleRadiusX', { min: 20, max: 40, step: 0.1, label: '30yd Circ Rad X' }).on('change', regenerateStadium);
+    cricketPitchFolder.addBinding(PARAMS, 'cricket30YardCircleRadiusZ', { min: 20, max: 40, step: 0.1, label: '30yd Circ Rad Z' }).on('change', regenerateStadium);
+    cricketPitchFolder.addBinding(PARAMS, 'cricket30YardCircleColor', { view: 'color' }).on('change', regenerateStadium);
+    cricketPitchFolder.addBinding(PARAMS, 'cricketInnerCircleLineThickness', { min: 0.02, max: 0.15, step: 0.01 }).on('change', regenerateStadium);
 
     // --- Tweakpane Image Upload Button ---
     // Create a hidden file input for image upload
@@ -519,6 +528,7 @@ function animate() {
 // --- STADIUM GENERATION LOGIC ---
 function regenerateStadium() {
     console.log(`Regenerating stadium as type: ${PARAMS.stadiumType}`);
+    // Clear previous stadium
     while (stadiumGroup.children.length > 0) {
         const child = stadiumGroup.children[0];
         stadiumGroup.remove(child);
@@ -531,11 +541,15 @@ function regenerateStadium() {
             }
         }
     }
+    // Remove any previous cricket field group
+    const oldCricketField = stadiumGroup.getObjectByName('CricketFieldGroup');
+    if (oldCricketField) stadiumGroup.remove(oldCricketField);
+
     if (PARAMS.stadiumType === 'football') {
         if (PARAMS.showPitch) createPitch();
         if (PARAMS.showStands) generateAllStands(PARAMS, stadiumGroup);
     } else if (PARAMS.stadiumType === 'cricket') {
-        if (PARAMS.showPitch) createCricketPitchAndBoundary();
+        createCricketField(PARAMS, stadiumGroup); // Always call for cricket
         if (PARAMS.showStands) generateCricketStands(PARAMS, stadiumGroup);
     }
     
@@ -799,6 +813,130 @@ function createCricketPitchAndBoundary() {
 }
 function generateCricketStands(params, group) {
     // TODO: Implement cricket stand segments around oval
+}
+
+function createCricketField(params, parentGroup) {
+    if (!params.showCricketPitch) return;
+    const fieldGroup = new THREE.Group();
+    fieldGroup.name = "CricketFieldGroup";
+
+    // --- 1. Oval Outfield ---
+    const outfieldShape = new THREE.Shape();
+    const xRadius = params.cricketBoundaryRadiusX + 20;
+    const zRadius = params.cricketBoundaryRadiusZ + 20;
+    outfieldShape.ellipse(0, 0, xRadius, zRadius, 0, 2 * Math.PI, false, 0);
+    const outfieldGeometry = new THREE.ShapeGeometry(outfieldShape, 64);
+    const outfieldMaterial = new THREE.MeshStandardMaterial({
+        color: params.cricketOutfieldColor,
+        side: THREE.DoubleSide,
+        roughness: 0.8,
+        metalness: 0.0
+    });
+    const outfieldMesh = new THREE.Mesh(outfieldGeometry, outfieldMaterial);
+    outfieldMesh.rotation.x = -Math.PI / 2;
+    outfieldMesh.receiveShadow = true;
+    outfieldMesh.name = "Outfield";
+    fieldGroup.add(outfieldMesh);
+
+    // --- 2. Central Pitch (Wicket Area) ---
+    const wicketMaterial = new THREE.MeshStandardMaterial({
+        color: '#CDA680', // Default wicket color
+        roughness: 0.7,
+        metalness: 0.0
+    });
+    const wicketGeo = new THREE.PlaneGeometry(params.cricketWicketLength, params.cricketWicketWidth);
+    const wicketMesh = new THREE.Mesh(wicketGeo, wicketMaterial);
+    wicketMesh.rotation.x = -Math.PI / 2;
+    wicketMesh.position.y = 0.01;
+    wicketMesh.receiveShadow = true;
+    wicketMesh.name = "WicketArea";
+    fieldGroup.add(wicketMesh);
+
+    // --- Helper to create crease lines (thin boxes) ---
+    function createLineSegment(length, width, x, z, yPos = 0.02, rotationY = 0, color = '#FFFFFF') { // Default white color for creases
+        const lineGeo = new THREE.BoxGeometry(length, params.cricketCreaseLineWidth, width);
+        const lineMat = new THREE.MeshStandardMaterial({ color: color, emissive: color, emissiveIntensity:0.2 });
+        const line = new THREE.Mesh(lineGeo, lineMat);
+        line.position.set(x, yPos + params.cricketCreaseLineWidth / 2, z);
+        line.rotation.y = rotationY;
+        fieldGroup.add(line);
+    }
+
+    // Creases (main ones related to batting/bowling)
+    const halfWicketL = params.cricketWicketLength / 2;
+    const halfWicketW = params.cricketWicketWidth / 2;
+    // Popping Creases
+    const poppingCreaseLength = Math.max(params.cricketWicketWidth, 2.64);
+    createLineSegment(params.cricketCreaseLineWidth, poppingCreaseLength, halfWicketL, 0);
+    createLineSegment(params.cricketCreaseLineWidth, poppingCreaseLength, -halfWicketL, 0);
+    // Bowling Creases
+    const bowlingCreaseXOffset = 1.22;
+    createLineSegment(params.cricketCreaseLineWidth, params.cricketWicketWidth, halfWicketL - bowlingCreaseXOffset, 0);
+    createLineSegment(params.cricketCreaseLineWidth, params.cricketWicketWidth, -halfWicketL + bowlingCreaseXOffset, 0);
+    // Return Creases
+    const returnCreaseLength = 2.44;
+    createLineSegment(returnCreaseLength, params.cricketCreaseLineWidth, halfWicketL + returnCreaseLength / 2 - bowlingCreaseXOffset, halfWicketW, 0, Math.PI / 2);
+    createLineSegment(returnCreaseLength, params.cricketCreaseLineWidth, halfWicketL + returnCreaseLength / 2 - bowlingCreaseXOffset, -halfWicketW, 0, Math.PI / 2);
+    createLineSegment(returnCreaseLength, params.cricketCreaseLineWidth, -halfWicketL - returnCreaseLength / 2 + bowlingCreaseXOffset, halfWicketW, 0, Math.PI / 2);
+    createLineSegment(returnCreaseLength, params.cricketCreaseLineWidth, -halfWicketL - returnCreaseLength / 2 + bowlingCreaseXOffset, -halfWicketW, 0, Math.PI / 2);
+
+    // --- 3. 30-Yard Circle (Inner Circle) ---
+    const circlePoints = [];
+    const circleSegments = 64;
+    const yCircle = 0.025;
+    for (let i = 0; i <= circleSegments; i++) {
+        const angle = (i / circleSegments) * Math.PI * 2;
+        circlePoints.push(new THREE.Vector3(
+            Math.cos(angle) * params.cricket30YardCircleRadiusX,
+            yCircle,
+            Math.sin(angle) * params.cricket30YardCircleRadiusZ
+        ));
+    }
+    const numDashes = 64;
+    const ellipseCurveForDashes = new THREE.EllipseCurve(
+        0, 0,
+        params.cricket30YardCircleRadiusX, params.cricket30YardCircleRadiusZ,
+        0, 2 * Math.PI, false, 0
+    );
+    const curvePoints = ellipseCurveForDashes.getPoints(numDashes * 2);
+    for(let i = 0; i < curvePoints.length - 1; i += 2) {
+        if(i+1 >= curvePoints.length) break;
+        const p1 = curvePoints[i];
+        const p2 = curvePoints[i+1];
+        const actualDashLength = Math.sqrt((p2.x - p1.x) ** 2 + (p2.y - p1.y) ** 2);
+        const dashGeo = new THREE.BoxGeometry(actualDashLength, params.cricketInnerCircleLineThickness, params.cricketInnerCircleLineThickness);
+        const dashMat = new THREE.MeshStandardMaterial({color: params.cricket30YardCircleColor, emissive: params.cricket30YardCircleColor, emissiveIntensity:0.2});
+        const dash = new THREE.Mesh(dashGeo, dashMat);
+        dash.position.set( (p1.x + p2.x) / 2, yCircle + params.cricketInnerCircleLineThickness / 2, (p1.y + p2.y) / 2 );
+        dash.lookAt(new THREE.Vector3(p2.x, yCircle, p2.y));
+        dash.rotateY(Math.PI/2);
+        fieldGroup.add(dash);
+    }
+
+    // --- 4. Boundary Ropes ---
+    const boundaryRopeMaterial = new THREE.MeshStandardMaterial({
+        color: params.cricketBoundaryRopeColor,
+        roughness: 0.5,
+        metalness: 0.1
+    });
+    const boundaryPoints3D = [];
+    const boundarySegments = 128;
+    const yBoundary = params.cricketBoundaryRopeRadius + 0.01;
+    for (let i = 0; i <= boundarySegments; i++) {
+        const angle = (i / boundarySegments) * Math.PI * 2;
+        boundaryPoints3D.push(new THREE.Vector3(
+            Math.cos(angle) * params.cricketBoundaryRadiusX,
+            yBoundary,
+            Math.sin(angle) * params.cricketBoundaryRadiusZ
+        ));
+    }
+    const boundaryCurve3D = new THREE.CatmullRomCurve3(boundaryPoints3D, true);
+    const boundaryGeo = new THREE.TubeGeometry(boundaryCurve3D, boundarySegments, params.cricketBoundaryRopeRadius, 12, true);
+    const boundaryRopeMesh = new THREE.Mesh(boundaryGeo, boundaryRopeMaterial);
+    boundaryRopeMesh.name = "BoundaryRope";
+    fieldGroup.add(boundaryRopeMesh);
+
+    parentGroup.add(fieldGroup);
 }
 
 init();
